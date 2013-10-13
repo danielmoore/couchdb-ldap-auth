@@ -6,20 +6,16 @@
 %%% @end
 %%% Created : 08. Oct 2013 10:25 PM
 %%%-------------------------------------------------------------------
--module(config).
+-module(ldap_auth_config).
 -author("dmoore").
 
 %% API
 -export([get_config/1]).
+-include_lib("couch/include/couch_db.hrl").
 
 get_config([]) -> [];
 get_config([Key|Rem]) ->
-  [case Key of
-    "UseSsl" -> false;
-    "LdapServer" -> "atlas.northhorizon.local";
-     "BaseDN" -> "DC=northhorizon,DC=local";
-     "SearchUserDN" -> "CN=ldapsearch,CN=Users,DC=northhorizon,DC=local";
-     "SearchUserPassword" -> "Welcome1";
-     "UserDNMapAttr" -> "userPrincipalName";
-     "GroupDNMapAttr" -> "name"
+  [case couch_config:get("ldap_auth", Key, undefined) of
+    undefined -> throw({config_key_not_found, "Key not found in [ldap_auth] section of config: " ++ Key});
+    Value -> Value
   end | get_config(Rem)].

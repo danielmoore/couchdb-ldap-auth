@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 08. Oct 2013 10:21 PM
 %%%-------------------------------------------------------------------
--module(ldap_integration).
+-module(ldap_auth_gateway).
 -author("dmoore").
 
 -include_lib("eldap/include/eldap.hrl").
@@ -14,7 +14,7 @@
 %% API
 -export([connect/0, authenticate/3, get_group_memberships/2]).
 
--import(config, [get_config/1]).
+-import(ldap_auth_config, [get_config/1]).
 
 authenticate(LdapConnection, User, Password) ->
   [UserDNMapAttr] = get_config(["UserDNMapAttr"]),

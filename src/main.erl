@@ -22,7 +22,7 @@
 
 -include_lib("eldap/include/eldap.hrl").
 
--import(ldap_integration, [connect/0, authenticate/3, get_group_memberships/2]).
+-import(ldap_auth_gateway, [connect/0, authenticate/3, get_group_memberships/2]).
 
 start() ->
 %%   User = string:strip(io:get_line("User: "), right, $\n),
