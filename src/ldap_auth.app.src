@@ -1,0 +1,12 @@
+{application, ldap_auth,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, [ "src/ldap_auth" ]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { ldap_auth_app, []}},
+  {env, []}
+ ]}.

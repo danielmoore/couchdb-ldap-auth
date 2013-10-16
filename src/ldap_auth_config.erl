@@ -11,7 +11,7 @@
 
 %% API
 -export([get_config/1]).
--include_lib("couch/include/couch_db.hrl").
+-include("couch_db.hrl").
 
 get_config([]) -> [];
 get_config([Key|Rem]) ->

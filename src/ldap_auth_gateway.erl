@@ -2,8 +2,7 @@
 %%% @author dmoore
 %%% @copyright (C) 2013, <COMPANY>
 %%% @doc
-%%%
-%%% @end
+%%%%%% @end
 %%% Created : 08. Oct 2013 10:21 PM
 %%%-------------------------------------------------------------------
 -module(ldap_auth_gateway).
