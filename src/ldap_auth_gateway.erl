@@ -9,39 +9,53 @@
 -author("dmoore").
 
 -include_lib("eldap/include/eldap.hrl").
+-include("couch_db.hrl").
 
 %% API
--export([connect/0, authenticate/3, get_group_memberships/2]).
+-export([connect/0, authenticate/3, get_user_dn/2, get_group_memberships/2]).
 
 -import(ldap_auth_config, [get_config/1]).
 
 authenticate(LdapConnection, User, Password) ->
+  case get_user_dn(LdapConnection, User) of
+    {error, _} = Error -> Error;
+    {ok, UserDN} ->
+      % attempt to connect as UserDN and if it doesn't throw, immediately disconnect.
+      case connect(UserDN, Password) of
+        {ok, UserLdapConnection} ->
+          eldap:close(UserLdapConnection),
+          { ok, UserDN };
+        {error, _} = Error ->
+          ?LOG_INFO("Could authenticate user ~p with given password.", [User]),
+          Error
+      end
+  end.
+
+get_user_dn(LdapConnection, User) when User =/= <<"">>, User =/= "" ->
   [UserDNMapAttr] = get_config(["UserDNMapAttr"]),
 
   case query(LdapConnection, "person", eldap:equalityMatch(UserDNMapAttr, User)) of
-    [] -> throw({ invalid_credentials });
+    [] ->
+      ?LOG_INFO("Could not find user with ~s = ~p to authenticate.", [UserDNMapAttr, User]),
+      { error, invalid_credentials };
     [#eldap_entry{ object_name = UserDN } | _] ->
-      % attempt to connect as UserDN and if it doesn't throw, immediately disconnect.
-      eldap:close(connect(UserDN, Password)),
-
-      UserDN
+      {ok, UserDN}
   end.
 
 connect() ->
   [SearchUserDN, SearchUserPassword] = get_config(["SearchUserDN", "SearchUserPassword"]),
-  io:format("Connecting with ~s / ~s\n", [SearchUserDN, SearchUserPassword]),
   connect(SearchUserDN, SearchUserPassword).
 
 connect(DN, Password) ->
   [LdapServer, UseSsl] = get_config(["LdapServer", "UseSsl"]),
-  case eldap:open([LdapServer], [{ssl, UseSsl}]) of
+  case eldap:open([LdapServer], [{ssl, list_to_atom(UseSsl)}]) of
     {error, Reason} -> throw({ ldap_connection_error, Reason });
     {ok, LdapConnection} ->
       case eldap:simple_bind(LdapConnection, DN, Password) of
         {error, _} ->
           eldap:close(LdapConnection),
-          throw({ invalid_credentials });
-        ok -> LdapConnection
+          { error, invalid_credentials };
+        ok -> { ok, LdapConnection }
       end
   end.
 
@@ -54,8 +68,13 @@ query(LdapConnection, Type, Filter) ->
   end.
 
 get_group_memberships(LdapConnection, UserDN) ->
+%%   [AdminGroupDN] = get_config(["AdminGroupDN"]),
   Memberships = get_group_memberships(LdapConnection, sets:new(), UserDN),
-  [ element(2, T) || T <- sets:to_list(Memberships) ].
+  sets:to_list(Memberships).
+%%   [ case T of
+%%       {AdminGroupDN, _} -> "_admin";
+%%       {_, R} -> R
+%%     end || T <- sets:to_list(Memberships) ].
 
 get_group_memberships(LdapConnection, Memberships, DN) ->
   [GroupDNMapAttr] = get_config(["GroupDNMapAttr"]),

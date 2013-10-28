@@ -1,5 +1,6 @@
 -module(config_tests).
 
+-include("couch_db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -import(ldap_auth_config, [get_config/1]).
 
@@ -27,7 +28,7 @@ run(Tests) ->
   {
     setup,
     fun () ->
-      meck:new(couch_config),
+      meck:new(couch_config, [non_strict]),
       meck:expect(couch_config, get,
         fun ("ldap_auth", "foo", _) -> "oof";
             ("ldap_auth", "bar", _) -> "rab";
