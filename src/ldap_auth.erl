@@ -13,7 +13,7 @@
 -define(replace(L, K, V), lists:keystore(K, 1, L, {K, V})).
 
 %% API
--export([handle_basic_auth_req/1, handle_cookie_auth_req/1, handle_admin_role/1]).
+-export([handle_basic_auth_req/1, handle_admin_role/1]).
 -export([handle_session_req/1]).
 
 -import(couch_httpd, [header_value/2, send_json/2,send_json/4, send_method_not_allowed/2]).
@@ -48,63 +48,6 @@ handle_admin_role(#httpd{ user_ctx = #user_ctx{ roles = Roles } = UserCtx } = Re
     _ -> Req
   end;
 handle_admin_role(Req) -> Req.
-
-handle_cookie_auth_req(#httpd{mochi_req=MochiReq}=Req) ->
-  case MochiReq:get_cookie_value("AuthSession") of
-    undefined -> Req;
-    [] -> Req;
-    Cookie ->
-      [User, TimeStr, HashStr] = begin
-        AuthSession = couch_util:decodeBase64Url(Cookie),
-        case re:split(?b2l(AuthSession), ":", [{return, list}, {parts, 3}]) of
-          [_, _, _] = Parts -> Parts;
-          _ ->
-            Reason = <<"Malformed AuthSession cookie. Please clear your cookies.">>,
-            throw({bad_request, Reason})
-        end
-      end,
-      % Verify expiry and hash
-      CurrentTime = make_cookie_time(),
-      case couch_config:get("couch_httpd_auth", "secret", nil) of
-        nil ->
-          ?LOG_DEBUG("cookie auth secret is not set",[]),
-          Req;
-        SecretStr ->
-          Secret = ?l2b(SecretStr),
-          case couch_auth_cache:get_user_creds(User) of
-            nil -> Req;
-            UserProps ->
-              ?LOG_INFO("Got user creds: ~p", [UserProps]),
-              UserSalt = couch_util:get_value(<<"salt">>, UserProps, <<"">>),
-              FullSecret = <<Secret/binary, UserSalt/binary>>,
-              ExpectedHash = crypto:hmac(sha, FullSecret, User ++ ":" ++ TimeStr),
-              Hash = ?l2b(HashStr),
-              Timeout = list_to_integer(
-                couch_config:get("couch_httpd_auth", "timeout", "600")),
-              ?LOG_DEBUG("timeout ~p", [Timeout]),
-              ?LOG_INFO("Now: ~p, Cut off: ~p", [CurrentTime, list_to_integer(TimeStr, 16) + Timeout]),
-              case {(catch list_to_integer(TimeStr, 16)), couch_passwords:verify(ExpectedHash, Hash)} of
-                {TimeStamp, true} when CurrentTime < TimeStamp + Timeout ->
-                  case get_user_roles(User) of
-                    {error, _} -> Req;
-                    {ok, Roles} ->
-                      TimeLeft = TimeStamp + Timeout - CurrentTime,
-                      ?LOG_DEBUG("Successful cookie auth as: ~p", [User]),
-                      Req#httpd{
-                        user_ctx = #user_ctx{
-                          name = ?l2b(User),
-                          roles = Roles
-                        },
-                        auth = { FullSecret, TimeLeft < Timeout * 0.9 }
-                      }
-                  end;
-                V ->
-                  ?LOG_INFO("Result: ~p", [V]),
-                  Req
-              end
-          end
-      end
-  end.
 
 % session handlers
 % Login handler with user db
@@ -272,21 +215,6 @@ set_user_roles(UserName, Roles) ->
   case couch_db:update_doc(AuthDb#db{ validate_doc_funs=[] }, Doc, []) of
     {ok, _} -> ok;
     {error, _} = Error -> throw(Error)
-  end.
-
-get_user_roles(User) when User =/= "" ->
-  case connect() of
-    {error, _} = Error -> Error;
-    {ok, LdapConnection} ->
-      case get_user_dn(LdapConnection, User) of
-        {error, _} = Error ->
-          eldap:close(LdapConnection),
-          Error;
-        {ok, UserDN} ->
-          Roles = get_group_memberships(LdapConnection, UserDN),
-          eldap:close(LdapConnection),
-          {ok, [ ?l2b(R) || R <- Roles ]}
-      end
   end.
 
 authenticate_user(_UserName, _Password) when _UserName == <<"">>; _Password == <<"">> ->
