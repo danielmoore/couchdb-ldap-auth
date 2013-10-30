@@ -68,13 +68,8 @@ query(LdapConnection, Type, Filter) ->
   end.
 
 get_group_memberships(LdapConnection, UserDN) ->
-%%   [AdminGroupDN] = get_config(["AdminGroupDN"]),
   Memberships = get_group_memberships(LdapConnection, sets:new(), UserDN),
-  sets:to_list(Memberships).
-%%   [ case T of
-%%       {AdminGroupDN, _} -> "_admin";
-%%       {_, R} -> R
-%%     end || T <- sets:to_list(Memberships) ].
+  [ R || {_, R} <- sets:to_list(Memberships)].
 
 get_group_memberships(LdapConnection, Memberships, DN) ->
   [GroupDNMapAttr] = get_config(["GroupDNMapAttr"]),
