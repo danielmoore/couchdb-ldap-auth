@@ -16,7 +16,7 @@
 -export([handle_basic_auth_req/1, handle_admin_role/1]).
 -export([handle_session_req/1]).
 
--import(couch_httpd, [header_value/2, send_json/2,send_json/4, send_method_not_allowed/2]).
+-import(couch_httpd, [header_value/2, send_json/2, send_json/4, send_method_not_allowed/2]).
 
 -import(ldap_auth_config, [get_config/1]).
 -import(ldap_auth_gateway, [connect/0, authenticate/3, get_user_dn/2, get_group_memberships/2]).
@@ -41,13 +41,26 @@ handle_basic_auth_req(Req) ->
       Req
   end.
 
-handle_admin_role(#httpd{ user_ctx = #user_ctx{ roles = Roles } = UserCtx } = Req) when size(Roles) > 0 ->
+handle_admin_role(Req) ->
+  % This is a workaround pending a resolution to https://issues.apache.org/jira/browse/COUCHDB-2034
+  [AuthenticationHandlers] = get_config(["AuthenticationHandlers"]),
+  {ok, Tokens, _} = erl_scan:string("[" ++ AuthenticationHandlers ++ "]."),
+  {ok, Term} = erl_parse:parse_term(Tokens),
+  AuthedReq = run_auth_handlers(Req, Term),
+  prepend_admin_role(AuthedReq).
+
+prepend_admin_role(#httpd{ user_ctx = #user_ctx{ name = User, roles = Roles } = UserCtx } = Req) when length(Roles) > 0 ->
   [SystemAdminRoleName] = get_config(["SystemAdminRoleName"]),
-  case lists:member(SystemAdminRoleName, Roles) of
+  ?LOG_DEBUG("Checking for system admin role ~p for user ~p with roles: ~p", [ SystemAdminRoleName, User, Roles ]),
+  case lists:member(?l2b(SystemAdminRoleName), Roles) of
     true -> Req#httpd{ user_ctx = UserCtx#user_ctx{ roles = [<<"_admin">>|Roles] } };
     _ -> Req
   end;
-handle_admin_role(Req) -> Req.
+prepend_admin_role(#httpd{} = Req) -> Req.
+
+run_auth_handlers(Req, []) -> Req;
+run_auth_handlers(Req, [ {Mod, Fun} | Rem]) -> run_auth_handlers(Mod:Fun(Req), Rem);
+run_auth_handlers(Req, [ {Mod, Fun, SpecArg} | Rem]) -> run_auth_handlers(Mod:Fun(Req, SpecArg), Rem).
 
 % session handlers
 % Login handler with user db

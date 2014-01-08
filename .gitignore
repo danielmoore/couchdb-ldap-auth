@@ -1,5 +1,5 @@
 .eunit
-deps
+/deps/*
 *.o
 *.beam
 *.plt
