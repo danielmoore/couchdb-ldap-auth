@@ -13,6 +13,9 @@ First, check out the source and `cd` into it.
 ### Prerequisites
 - Erlang
 - Rebar
+- eldap (bundled with Erlang >= R15B. See their [github repo][eldap].)
+
+[eldap]: https://github.com/etnt/eldap
 
 ### Build from Source
 
