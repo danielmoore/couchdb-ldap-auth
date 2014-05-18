@@ -246,7 +246,7 @@ authenticate_user(UserName, Password) ->
         {ok, UserDN} ->
           Groups = get_group_memberships(LdapConnection, UserDN),
           eldap:close(LdapConnection),
-          {ok, [ ?l2b(G) || G <- Groups ]}
+          {ok, [ ?l2b(string:to_lower(G)) || G <- Groups ]}
       end
   end.
 
