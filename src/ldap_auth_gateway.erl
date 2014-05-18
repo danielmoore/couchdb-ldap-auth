@@ -47,8 +47,9 @@ connect() ->
   connect(SearchUserDN, SearchUserPassword).
 
 connect(DN, Password) ->
-  [LdapServer, UseSsl] = get_config(["LdapServer", "UseSsl"]),
-  case eldap:open([LdapServer], [{ssl, list_to_atom(UseSsl)}]) of
+  [LdapServers, UseSsl] = get_config(["LdapServers", "UseSsl"]),
+  LdapServerList = re:split(LdapServers, "\\s*,\\s*", [{return, list}]),
+  case eldap:open(LdapServerList, [{ssl, list_to_atom(UseSsl)}]) of
     {error, Reason} -> throw({ ldap_connection_error, Reason });
     {ok, LdapConnection} ->
       case eldap:simple_bind(LdapConnection, DN, Password) of

@@ -106,9 +106,9 @@ list.
 
 Set to `true` to use SSL to bind to the LDAP server. Default: `false`
 
-#### LdapServer
+#### LdapServers
 
-The LDAP server to use for searches and authentication.
+The LDAP servers to use for searches and authentication, separated by commas. These will be tried in-order.
 
 #### BaseDN
 
