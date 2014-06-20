@@ -20,7 +20,7 @@ First, check out the source and `cd` into it.
 ### Build from Source
 
 ```
-rebar clean compile
+rebar get-deps clean compile
 ```
 
 ### Run Tests
